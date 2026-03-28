@@ -5,51 +5,42 @@
 <title>PDV Dupla do Sabor</title>
 
 <style>
-body{font-family:Arial;margin:0;background:#f0f2f5;}
-.topo{background:#111;color:#fff;padding:15px;text-align:center;}
-.container{padding:15px;}
-input,button{padding:10px;margin:5px;font-size:16px}
-.card{background:#fff;padding:10px;margin:5px;border-radius:8px}
+body{font-family:Arial;margin:0;background:#f1f1f1}
+.topo{background:#28a745;color:#fff;padding:15px;text-align:center}
+.menu button{margin:5px;padding:12px;border:none;border-radius:6px}
+.container{padding:15px}
+.card{background:#fff;padding:10px;margin:5px 0;border-radius:8px}
+input{padding:10px;margin:5px;width:90%}
+button{cursor:pointer}
 .total{font-size:20px;font-weight:bold}
 </style>
-
 </head>
 
 <body>
 
 <div class="topo">
-<h2>Dupla do Sabor - Sistema</h2>
+<h2>Dupla do Sabor</h2>
+<div class="menu">
 <button onclick="tela('caixa')">Caixa</button>
 <button onclick="tela('estoque')">Estoque</button>
 <button onclick="tela('relatorio')">Relatório</button>
 </div>
+</div>
 
 <div class="container" id="app"></div>
 
-<script type="module">
+<script>
 
-// 🔥 FIREBASE (SEU CONFIG)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDYm_WaHRz_c1f0oXiQJs2NDGnmp1k5qxw",
-  authDomain: "dupla-do-sabor.firebaseapp.com",
-  projectId: "dupla-do-sabor",
-  storageBucket: "dupla-do-sabor.firebasestorage.app",
-  messagingSenderId: "273173257987",
-  appId: "1:273173257987:web:93b6fd5ec9418f219c9336"
-};
-
-const appFirebase = initializeApp(firebaseConfig);
-const db = getFirestore(appFirebase);
-
-// VARIÁVEIS
+let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+let vendas = JSON.parse(localStorage.getItem("vendas")) || [];
 let carrinho = [];
-let produtos = [];
 
-// TELAS
-window.tela = async function(t){
+function salvar(){
+ localStorage.setItem("produtos", JSON.stringify(produtos));
+ localStorage.setItem("vendas", JSON.stringify(vendas));
+}
+
+function tela(t){
 
 if(t==="estoque"){
  app.innerHTML=`
@@ -58,21 +49,23 @@ if(t==="estoque"){
  <input id="nome" placeholder="Nome">
  <input id="codigo" placeholder="Código">
  <input id="preco" placeholder="Valor">
- <button onclick="addProduto()">Adicionar</button>
+ <input id="qtd" placeholder="Quantidade">
 
- <div id="lista"></div>
- `;
- carregarProdutos();
+ <button onclick="addProduto()">Salvar Produto</button>
+
+ <div id="lista"></div>`;
+ renderProdutos();
 }
 
 if(t==="caixa"){
  app.innerHTML=`
  <h3>Caixa</h3>
 
- <input id="cod" placeholder="Código">
+ <input id="cod" placeholder="Código do produto">
  <button onclick="addCarrinho()">Adicionar</button>
 
  <div id="carrinho"></div>
+
  <div class="total" id="total"></div>
 
  <h3>Pagamento</h3>
@@ -82,129 +75,183 @@ if(t==="caixa"){
 
  <div id="pagArea"></div>
 
- <button onclick="finalizar()">Finalizar</button>
+ <button onclick="finalizar()">Finalizar Venda</button>
+ <button onclick="limpar()">Cancelar</button>
  `;
  renderCarrinho();
 }
 
 if(t==="relatorio"){
- app.innerHTML=`<h3>Relatório (em breve completo)</h3>`;
-}
+ let total=0;
+ vendas.forEach(v=> total+=v.total);
 
-}
+ app.innerHTML=`
+ <h3>Relatório</h3>
+ <p>Total de vendas: ${vendas.length}</p>
+ <p>Faturamento: R$ ${total}</p>
 
-// 🔥 PRODUTOS
-window.addProduto = async function(){
- let nome = document.getElementById("nome").value;
- let codigo = document.getElementById("codigo").value;
- let preco = parseFloat(document.getElementById("preco").value);
+ <h4>Histórico</h4>
+ <div id="hist"></div>
+ `;
 
- await addDoc(collection(db,"produtos"),{
-  nome,codigo,preco
+ let hist="";
+ vendas.forEach(v=>{
+  hist+=`<div class="card">Venda: R$ ${v.total}</div>`;
  });
 
- alert("Produto salvo!");
- carregarProdutos();
+ document.getElementById("hist").innerHTML=hist;
+}
 }
 
-async function carregarProdutos(){
- produtos = [];
- let lista = document.getElementById("lista");
- lista.innerHTML="";
+// ESTOQUE
+function addProduto(){
+ let nome=nome.value;
+ let codigo=codigo.value;
+ let preco=parseFloat(preco.value);
+ let qtd=parseInt(qtd.value);
 
- let snap = await getDocs(collection(db,"produtos"));
+ if(!nome || !codigo || !preco || !qtd){
+  alert("Preencha tudo");
+  return;
+ }
 
- snap.forEach(d=>{
-  let p = d.data();
-  p.id = d.id;
-  produtos.push(p);
+ produtos.push({nome,codigo,preco,qtd});
+ salvar();
+ renderProdutos();
+}
 
-  lista.innerHTML += `
+function renderProdutos(){
+ let div=document.getElementById("lista");
+ div.innerHTML="";
+
+ produtos.forEach((p,i)=>{
+  div.innerHTML+=`
   <div class="card">
-   ${p.nome} - ${p.codigo} - R$ ${p.preco}
-   <button onclick="excluir('${p.id}')">Excluir</button>
+   ${p.nome} | ${p.codigo} | R$ ${p.preco} | Qtd: ${p.qtd}
+   <br>
+   <button onclick="editar(${i})">Editar</button>
+   <button onclick="excluir(${i})">Excluir</button>
   </div>`;
  });
 }
 
-window.excluir = async function(id){
- await deleteDoc(doc(db,"produtos",id));
- carregarProdutos();
+function excluir(i){
+ produtos.splice(i,1);
+ salvar();
+ renderProdutos();
 }
 
-// 🛒 CAIXA
-window.addCarrinho = function(){
- let c = document.getElementById("cod").value;
- let p = produtos.find(x=>x.codigo===c);
+function editar(i){
+ let p=produtos[i];
 
- if(!p){alert("Não encontrado");return;}
+ let novoNome=prompt("Nome:",p.nome);
+ let novoPreco=prompt("Preço:",p.preco);
+ let novaQtd=prompt("Quantidade:",p.qtd);
 
- let item = carrinho.find(x=>x.codigo===c);
+ p.nome=novoNome;
+ p.preco=parseFloat(novoPreco);
+ p.qtd=parseInt(novaQtd);
+
+ salvar();
+ renderProdutos();
+}
+
+// CAIXA
+function addCarrinho(){
+ let c=cod.value;
+ let p=produtos.find(x=>x.codigo===c);
+
+ if(!p){alert("Produto não encontrado");return;}
+ if(p.qtd<=0){alert("Sem estoque");return;}
+
+ let item=carrinho.find(x=>x.codigo===c);
 
  if(item){item.qtd++;}
  else carrinho.push({...p,qtd:1});
 
+ p.qtd--;
+ salvar();
  renderCarrinho();
 }
 
 function renderCarrinho(){
- let div = document.getElementById("carrinho");
- if(!div) return;
-
+ let div=document.getElementById("carrinho");
  div.innerHTML="";
- let total = 0;
+
+ let total=0;
 
  carrinho.forEach((i,idx)=>{
   div.innerHTML+=`
   <div class="card">
    ${i.nome} x${i.qtd} = R$ ${i.preco*i.qtd}
-   <button onclick="rem(${idx})">-</button>
+   <button onclick="menos(${idx})">-</button>
   </div>`;
-  total += i.preco*i.qtd;
+  total+=i.preco*i.qtd;
  });
 
- totalEl.innerText="Total: R$ "+total;
+ document.getElementById("total").innerText="Total: R$ "+total;
 }
 
-window.rem = function(i){
- carrinho.splice(i,1);
+function menos(i){
+ let item=carrinho[i];
+ let p=produtos.find(x=>x.codigo===item.codigo);
+
+ item.qtd--;
+ p.qtd++;
+
+ if(item.qtd<=0) carrinho.splice(i,1);
+
+ salvar();
  renderCarrinho();
 }
 
-// 💳 PAGAMENTO
-window.pag = function(tipo){
- if(tipo==="dinheiro"){
-  pagArea.innerHTML=`
-  <input id="pago" placeholder="Valor pago">
-  <button onclick="troco()">Calcular</button>
-  <p id="troco"></p>`;
- }
-
- if(tipo==="pix"){
-  pagArea.innerHTML=`<p>Pix: 51920021285</p>`;
- }
-
- if(tipo==="cartao"){
-  pagArea.innerHTML=`<p>Cartão</p>`;
- }
-}
-
-window.troco = function(){
- let pago = parseFloat(document.getElementById("pago").value);
- let total = carrinho.reduce((s,i)=>s+i.preco*i.qtd,0);
-
- document.getElementById("troco").innerText =
- "Troco: R$ "+(pago-total);
-}
-
-// FINALIZAR
-window.finalizar = function(){
- alert("Venda finalizada");
+function limpar(){
  carrinho=[];
  renderCarrinho();
 }
 
-// INÍCIO
+// PAGAMENTO
+function pag(tipo){
+ let area=document.getElementById("pagArea");
+
+ if(tipo==="dinheiro"){
+  area.innerHTML=`
+  <input id="pago" placeholder="Valor pago">
+  <button onclick="troco()">Calcular troco</button>
+  <p id="troco"></p>`;
+ }
+
+ if(tipo==="pix"){
+  area.innerHTML=`<p>Pix: 51920021285</p>`;
+ }
+
+ if(tipo==="cartao"){
+  area.innerHTML=`<p>Cartão selecionado</p>`;
+ }
+}
+
+function troco(){
+ let pago=parseFloat(document.getElementById("pago").value);
+ let total=carrinho.reduce((s,i)=>s+i.preco*i.qtd,0);
+
+ document.getElementById("troco").innerText="Troco: R$ "+(pago-total);
+}
+
+// FINALIZAR
+function finalizar(){
+ let total=carrinho.reduce((s,i)=>s+i.preco*i.qtd,0);
+
+ vendas.push({total,data:new Date().toLocaleString()});
+
+ salvar();
+
+ alert("Venda finalizada");
+
+ carrinho=[];
+ tela("caixa");
+}
+
+// INICIO
 tela("caixa");
 
 </script>
