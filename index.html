@@ -1,43 +1,138 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Dupla do Sabor</title>
+<meta charset="UTF-8">
+<title>Dupla do Sabor</title>
+
+<style>
+body{
+ font-family: Arial;
+ margin:0;
+ background:#f5f5f5;
+}
+
+.topo{
+ background:#111;
+ color:#fff;
+ padding:15px;
+ text-align:center;
+}
+
+.menu button{
+ margin:5px;
+ padding:10px;
+ font-size:16px;
+}
+
+.container{
+ padding:15px;
+}
+
+input{
+ padding:10px;
+ margin:5px;
+ width:90%;
+}
+
+button{
+ padding:10px;
+ margin:5px;
+ font-size:16px;
+}
+
+.card{
+ background:#fff;
+ padding:10px;
+ margin:5px 0;
+ border-radius:8px;
+}
+</style>
+
 </head>
-<body style="font-family: Arial; padding:20px;">
+<body>
 
-<h1>Dupla do Sabor - Caixa</h1>
+<div class="topo">
+ <h2>Dupla do Sabor</h2>
+ <div class="menu">
+  <button onclick="tela('caixa')">Caixa</button>
+  <button onclick="tela('estoque')">Estoque</button>
+ </div>
+</div>
 
-<input id="codigo" placeholder="Código do produto">
-<button onclick="add()">Adicionar</button>
-
-<h2>Carrinho</h2>
-<div id="lista"></div>
-
-<h3 id="total">Total: 0</h3>
-
-<h3>Pagamento</h3>
-<button onclick="setPag('dinheiro')">Dinheiro</button>
-<button onclick="setPag('cartao')">Cartão</button>
-<button onclick="setPag('pix')">Pix</button>
-
-<div id="areaPagamento"></div>
-
-<br><br>
-<button onclick="finalizar()">Finalizar Venda</button>
+<div class="container" id="app"></div>
 
 <script>
-let produtos = [
- {codigo:"170991", nome:"Marmita 10", preco:10},
- {codigo:"170992", nome:"Marmita 15", preco:15}
-];
-
+let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 let carrinho = [];
-let pag = "";
 
-function add(){
- let c = document.getElementById("codigo").value;
- let p = produtos.find(x=>x.codigo===c);
+function salvar(){
+ localStorage.setItem("produtos", JSON.stringify(produtos));
+}
+
+function tela(t){
+ if(t==="estoque"){
+  document.getElementById("app").innerHTML = `
+   <h3>Estoque</h3>
+
+   <input id="nome" placeholder="Nome do produto">
+   <input id="codigo" placeholder="Código">
+   <input id="preco" placeholder="Valor">
+
+   <button onclick="addProduto()">Adicionar Produto</button>
+
+   <div id="listaProdutos"></div>
+  `;
+  renderProdutos();
+ }
+
+ if(t==="caixa"){
+  document.getElementById("app").innerHTML = `
+   <h3>Caixa</h3>
+
+   <input id="codigoVenda" placeholder="Código do produto">
+   <button onclick="addCarrinho()">Adicionar</button>
+
+   <div id="carrinho"></div>
+
+   <h2 id="total">Total: 0</h2>
+
+   <button onclick="finalizar()">Finalizar</button>
+  `;
+  renderCarrinho();
+ }
+}
+
+function addProduto(){
+ let nome = document.getElementById("nome").value;
+ let codigo = document.getElementById("codigo").value;
+ let preco = parseFloat(document.getElementById("preco").value);
+
+ if(!nome || !codigo || !preco){
+  alert("Preencha tudo");
+  return;
+ }
+
+ produtos.push({nome, codigo, preco});
+ salvar();
+ renderProdutos();
+}
+
+function renderProdutos(){
+ let div = document.getElementById("listaProdutos");
+ div.innerHTML = "";
+
+ produtos.forEach(p=>{
+  div.innerHTML += `
+   <div class="card">
+    ${p.nome} - ${p.codigo} - R$ ${p.preco}
+   </div>
+  `;
+ });
+}
+
+function addCarrinho(){
+ let codigo = document.getElementById("codigoVenda").value;
+ let p = produtos.find(x=>x.codigo===codigo);
 
  if(!p){
   alert("Produto não encontrado");
@@ -45,71 +140,34 @@ function add(){
  }
 
  carrinho.push(p);
- document.getElementById("codigo").value="";
- render();
+ renderCarrinho();
 }
 
-function render(){
- let lista = document.getElementById("lista");
- lista.innerHTML = "";
+function renderCarrinho(){
+ let div = document.getElementById("carrinho");
+ div.innerHTML = "";
 
  let total = 0;
 
- carrinho.forEach(i=>{
-  lista.innerHTML += i.nome + " - R$ " + i.preco + "<br>";
-  total += i.preco;
+ carrinho.forEach(p=>{
+  div.innerHTML += `
+   <div class="card">
+    ${p.nome} - R$ ${p.preco}
+   </div>
+  `;
+  total += p.preco;
  });
 
  document.getElementById("total").innerText = "Total: R$ " + total;
 }
 
-function setPag(tipo){
- pag = tipo;
-
- let area = document.getElementById("areaPagamento");
-
- if(tipo === "dinheiro"){
-  area.innerHTML = `
-   <input id="pago" placeholder="Valor pago">
-   <button onclick="calcTroco()">Calcular troco</button>
-   <p id="troco"></p>
-  `;
- }
-
- if(tipo === "cartao"){
-  area.innerHTML = `<p>Pagamento em cartão selecionado</p>`;
- }
-
- if(tipo === "pix"){
-  area.innerHTML = `<p>Pix: 51920021285</p>`;
- }
-}
-
-function calcTroco(){
- let pago = parseFloat(document.getElementById("pago").value);
- let total = carrinho.reduce((s,i)=>s+i.preco,0);
-
- if(isNaN(pago)){
-  alert("Digite o valor pago");
-  return;
- }
-
- document.getElementById("troco").innerText =
-  "Troco: R$ " + (pago - total);
-}
-
 function finalizar(){
- if(carrinho.length === 0){
-  alert("Carrinho vazio");
-  return;
- }
-
- alert("Venda finalizada!");
-
+ alert("Venda finalizada");
  carrinho = [];
- document.getElementById("areaPagamento").innerHTML = "";
- render();
+ renderCarrinho();
 }
+
+tela('caixa');
 </script>
 
 </body>
